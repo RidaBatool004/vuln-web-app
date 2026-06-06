@@ -65,11 +65,10 @@ async def search_user(q: str = ""):
     # SQL also uses string concatenation
     query = "SELECT username, email FROM users WHERE username LIKE '%" + q + "%' OR email LIKE '%" + q + "%'"
 
+    conn = get_db()
     try:
-        conn = get_db()
         cursor = conn.execute(query)
         rows = cursor.fetchall()
-        conn.close()
 
         results = ""
         for row in rows:
@@ -79,6 +78,8 @@ async def search_user(q: str = ""):
         return HTMLResponse(content=html)
     except Exception as e:
         return HTMLResponse(content=f"<h3>Error: {str(e)}</h3>")
+    finally:
+        conn.close()
 
 
 @router.get("/welcome")
