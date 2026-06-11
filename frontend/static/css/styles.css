@@ -7,16 +7,125 @@
     padding: 0;
 }
 
+:root {
+    color-scheme: light dark;
+
+    /* Surfaces */
+    --color-bg-body:           #ffffff;
+    --color-bg-dashboard:      #eef1f8;
+    --color-bg-surface:        #ffffff;
+    --color-bg-input:          #f8f9ff;
+    --color-bg-header:         #ffffff;
+
+    /* Text */
+    --color-text-primary:      #1e293b;
+    --color-text-secondary:    #475569;
+    --color-text-muted:        #64748b;
+    --color-text-accent:       #1a237e;
+    --color-text-on-brand:     #ffffff;
+
+    /* Borders & dividers */
+    --color-border-soft:       #e2e8f0;
+    --color-border-input:      #c5cae9;
+    --color-border-input-focus:#3949ab;
+
+    /* Brand gradients & accents */
+    --color-brand-primary:     #1a237e;
+    --color-brand-secondary:   #3949ab;
+    --color-brand-tertiary:    #283593;
+    --color-brand-deep:        #0d1b5e;
+
+    /* Shadows */
+    --shadow-focus:            0 0 0 3px rgba(57, 73, 171, 0.12);
+    --shadow-header:           0 2px 10px rgba(26, 35, 126, 0.08);
+    --shadow-card-hover:       0 4px 16px rgba(26, 35, 126, 0.10);
+
+    /* Error palette */
+    --color-error-bg:          #fef2f2;
+    --color-error-border:      #fecaca;
+    --color-error-text:        #991b1b;
+    --color-error-inline:      #dc2626;
+
+    /* Vulnerability tag pairs (background, text) */
+    --tag-sqli-bg:    #fef9c3;  --tag-sqli-fg:    #854d0e;
+    --tag-xss-bg:     #fee2e2;  --tag-xss-fg:     #991b1b;
+    --tag-session-bg: #f3e8ff;  --tag-session-fg: #6b21a8;
+    --tag-brute-bg:   #ffedd5;  --tag-brute-fg:   #9a3412;
+    --tag-crypto-bg:  #dcfce7;  --tag-crypto-fg:  #166534;
+    --tag-exposed-bg: #dbeafe;  --tag-exposed-fg: #1e40af;
+    --tag-csrf-bg:    #fce7f3;  --tag-csrf-fg:    #9d174d;
+
+    /* Step cards (dashboard) */
+    --color-step-bg:      #1a237e;
+    --color-step-text:    #ffffff;
+    --color-step-muted:   rgba(255, 255, 255, 0.85);
+    --color-step-badge:   rgba(255, 255, 255, 0.2);
+}
+
+:root[data-theme="dark"] {
+    /* Surfaces */
+    --color-bg-body:           #0f172a;
+    --color-bg-dashboard:      #0b1220;
+    --color-bg-surface:        #1e293b;
+    --color-bg-input:          #111827;
+    --color-bg-header:         #0b1220;
+
+    /* Text */
+    --color-text-primary:      #e2e8f0;
+    --color-text-secondary:    #cbd5e1;
+    --color-text-muted:        #94a3b8;
+    --color-text-accent:       #a5b4fc;
+    --color-text-on-brand:     #ffffff;
+
+    /* Borders & dividers */
+    --color-border-soft:       #1f2937;
+    --color-border-input:      #334155;
+    --color-border-input-focus:#a5b4fc;
+
+    /* Brand gradients & accents */
+    --color-brand-primary:     #3949ab;
+    --color-brand-secondary:   #5c6bc0;
+    --color-brand-tertiary:    #283593;
+    --color-brand-deep:        #1a237e;
+
+    /* Shadows */
+    --shadow-focus:            0 0 0 3px rgba(165, 180, 252, 0.25);
+    --shadow-header:           0 2px 10px rgba(0, 0, 0, 0.45);
+    --shadow-card-hover:       0 4px 16px rgba(0, 0, 0, 0.50);
+
+    /* Error palette */
+    --color-error-bg:          #3f1d1d;
+    --color-error-border:      #7f1d1d;
+    --color-error-text:        #fecaca;
+    --color-error-inline:      #fca5a5;
+
+    /* Vulnerability tag pairs */
+    --tag-sqli-bg:    #3a2e0a;  --tag-sqli-fg:    #facc15;
+    --tag-xss-bg:     #3a1414;  --tag-xss-fg:     #fca5a5;
+    --tag-session-bg: #2e1a4d;  --tag-session-fg: #d8b4fe;
+    --tag-brute-bg:   #3a2210;  --tag-brute-fg:   #fdba74;
+    --tag-crypto-bg:  #102a18;  --tag-crypto-fg:  #86efac;
+    --tag-exposed-bg: #102036;  --tag-exposed-fg: #93c5fd;
+    --tag-csrf-bg:    #3a1432;  --tag-csrf-fg:    #f9a8d4;
+
+    /* Step cards */
+    --color-step-bg:      #1a237e;
+    --color-step-text:    #ffffff;
+    --color-step-muted:   rgba(255, 255, 255, 0.78);
+    --color-step-badge:   rgba(255, 255, 255, 0.18);
+}
+
 body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     font-size: 0.9rem;
     font-weight: 400;
-    color: #1e293b;
+    background: var(--color-bg-body);
+    color: var(--color-text-primary);
     line-height: 1.6;
 }
 
 a {
-    color: #1a237e;
+    color: var(--color-text-accent);
     text-decoration: none;
 }
 
@@ -33,9 +142,9 @@ a:hover {
     left: 0;
     width: 100%;
     height: 70px;
-    background: #ffffff;
-    border-bottom: 1px solid #e2e8f0;
-    box-shadow: 0 2px 10px rgba(26, 35, 126, 0.08);
+    background: var(--color-bg-header);
+    border-bottom: 1px solid var(--color-border-soft);
+    box-shadow: var(--shadow-header);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -46,7 +155,7 @@ a:hover {
 .header-title {
     font-size: 1.2rem;
     font-weight: 700;
-    color: #1a237e;
+    color: var(--color-text-accent);
 }
 
 .header-logos {
@@ -61,6 +170,39 @@ a:hover {
     object-fit: contain;
 }
 
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin-right: 12px;
+    background: transparent;
+    border: 1px solid var(--color-border-soft);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: var(--color-text-accent);
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.theme-toggle:hover {
+    background: var(--color-bg-input);
+    border-color: var(--color-border-input);
+}
+
+.theme-toggle:focus-visible {
+    outline: none;
+    border-color: var(--color-border-input-focus);
+    box-shadow: var(--shadow-focus);
+}
+
+.theme-toggle .theme-toggle-icon {
+    pointer-events: none;
+}
+
 /* ============================
    Auth Pages (Login / Signup)
    ============================ */
@@ -72,7 +214,7 @@ a:hover {
 
 /* Left Panel */
 .auth-left {
-    background: linear-gradient(135deg, #0d1b5e 0%, #1a237e 50%, #283593 100%);
+    background: linear-gradient(135deg, var(--color-brand-deep) 0%, var(--color-brand-primary) 50%, var(--color-brand-tertiary) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -121,7 +263,7 @@ a:hover {
     font-weight: 700;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: #c5cae9;
+    color: var(--color-border-input);
     background: rgba(255, 255, 255, 0.1);
     padding: 6px 14px;
     border-radius: 20px;
@@ -170,7 +312,7 @@ a:hover {
     align-items: center;
     justify-content: center;
     padding: 70px 48px 48px;
-    background: #ffffff;
+    background: var(--color-bg-surface);
 }
 
 .form-container {
@@ -181,13 +323,13 @@ a:hover {
 .form-title {
     font-size: 1.7rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--color-text-primary);
     margin-bottom: 8px;
 }
 
 .form-subtitle {
     font-size: 0.9rem;
-    color: #64748b;
+    color: var(--color-text-muted);
     margin-bottom: 28px;
 }
 
@@ -200,7 +342,7 @@ a:hover {
     display: block;
     font-size: 0.82rem;
     font-weight: 600;
-    color: #475569;
+    color: var(--color-text-secondary);
     margin-bottom: 6px;
 }
 
@@ -209,21 +351,21 @@ a:hover {
     padding: 12px 16px;
     font-size: 0.9rem;
     font-family: inherit;
-    background: #f8f9ff;
-    border: 1.5px solid #c5cae9;
+    background: var(--color-bg-input);
+    border: 1.5px solid var(--color-border-input);
     border-radius: 8px;
-    color: #1e293b;
+    color: var(--color-text-primary);
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .form-input::placeholder {
-    color: #64748b;
+    color: var(--color-text-muted);
 }
 
 .form-input:focus {
     outline: none;
-    border-color: #3949ab;
-    box-shadow: 0 0 0 3px rgba(57, 73, 171, 0.12);
+    border-color: var(--color-border-input-focus);
+    box-shadow: var(--shadow-focus);
 }
 
 /* Buttons */
@@ -247,20 +389,20 @@ a:hover {
 .btn-primary {
     width: 100%;
     padding: 12px;
-    background: #1a237e;
-    color: #ffffff;
+    background: var(--color-brand-primary);
+    color: var(--color-text-on-brand);
     margin-top: 8px;
 }
 
 .btn-primary:hover {
-    background: #283593;
+    background: var(--color-brand-tertiary);
 }
 
 /* Error Messages */
 .error-message {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #991b1b;
+    background: var(--color-error-bg);
+    border: 1px solid var(--color-error-border);
+    color: var(--color-error-text);
     border-radius: 8px;
     padding: 12px;
     font-size: 0.85rem;
@@ -268,7 +410,7 @@ a:hover {
 }
 
 .password-error {
-    color: #dc2626;
+    color: var(--color-error-inline);
     font-size: 0.8rem;
     margin-top: 4px;
 }
@@ -277,12 +419,12 @@ a:hover {
 .form-link {
     text-align: center;
     font-size: 0.85rem;
-    color: #64748b;
+    color: var(--color-text-muted);
     margin-top: 20px;
 }
 
 .form-link a {
-    color: #1a237e;
+    color: var(--color-text-accent);
     font-weight: 600;
 }
 
@@ -290,12 +432,12 @@ a:hover {
    Dashboard
    ============================ */
 .dashboard-body {
-    background: #eef1f8;
+    background: var(--color-bg-dashboard);
 }
 
 /* Hero Banner */
 .hero-banner {
-    background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%);
+    background: linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-secondary) 100%);
     padding: 100px 32px 32px;
     display: flex;
     align-items: center;
@@ -356,23 +498,23 @@ a:hover {
 
 /* Mission Card */
 .mission-card {
-    background: #ffffff;
+    background: var(--color-bg-surface);
     border-radius: 12px;
     padding: 32px;
     margin-bottom: 32px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border-soft);
 }
 
 .section-title {
     font-size: 1.4rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--color-text-primary);
     margin-bottom: 12px;
 }
 
 .mission-description {
     font-size: 0.9rem;
-    color: #475569;
+    color: var(--color-text-secondary);
     line-height: 1.7;
 }
 
@@ -386,7 +528,7 @@ a:hover {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    color: #64748b;
+    color: var(--color-text-muted);
     margin-bottom: 16px;
 }
 
@@ -397,27 +539,27 @@ a:hover {
 }
 
 .vuln-card {
-    background: #ffffff;
+    background: var(--color-bg-surface);
     border-radius: 10px;
     padding: 20px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border-soft);
     transition: box-shadow 0.2s;
 }
 
 .vuln-card:hover {
-    box-shadow: 0 4px 16px rgba(26, 35, 126, 0.10);
+    box-shadow: var(--shadow-card-hover);
 }
 
 .card-title {
     font-size: 0.95rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--color-text-primary);
     margin: 10px 0 6px;
 }
 
 .card-description {
     font-size: 0.85rem;
-    color: #475569;
+    color: var(--color-text-secondary);
     line-height: 1.5;
 }
 
@@ -431,38 +573,38 @@ a:hover {
 }
 
 .tag-sqli {
-    background: #fef9c3;
-    color: #854d0e;
+    background: var(--tag-sqli-bg);
+    color: var(--tag-sqli-fg);
 }
 
 .tag-xss {
-    background: #fee2e2;
-    color: #991b1b;
+    background: var(--tag-xss-bg);
+    color: var(--tag-xss-fg);
 }
 
 .tag-session {
-    background: #f3e8ff;
-    color: #6b21a8;
+    background: var(--tag-session-bg);
+    color: var(--tag-session-fg);
 }
 
 .tag-brute {
-    background: #ffedd5;
-    color: #9a3412;
+    background: var(--tag-brute-bg);
+    color: var(--tag-brute-fg);
 }
 
 .tag-crypto {
-    background: #dcfce7;
-    color: #166534;
+    background: var(--tag-crypto-bg);
+    color: var(--tag-crypto-fg);
 }
 
 .tag-exposed {
-    background: #dbeafe;
-    color: #1e40af;
+    background: var(--tag-exposed-bg);
+    color: var(--tag-exposed-fg);
 }
 
 .tag-csrf {
-    background: #fce7f3;
-    color: #9d174d;
+    background: var(--tag-csrf-bg);
+    color: var(--tag-csrf-fg);
 }
 
 /* Process Steps */
@@ -477,10 +619,10 @@ a:hover {
 
 .step-card {
     flex: 1;
-    background: #1a237e;
+    background: var(--color-step-bg);
     border-radius: 12px;
     padding: 24px;
-    color: #ffffff;
+    color: var(--color-step-text);
     text-align: center;
 }
 
@@ -488,7 +630,7 @@ a:hover {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--color-step-badge);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -505,7 +647,7 @@ a:hover {
 
 .step-description {
     font-size: 0.82rem;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--color-step-muted);
     line-height: 1.5;
 }
 
@@ -547,5 +689,12 @@ a:hover {
 
     .hero-right {
         flex-direction: column;
+    }
+
+    .theme-toggle {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+        margin-right: 8px;
     }
 }
