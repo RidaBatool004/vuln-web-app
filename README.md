@@ -144,7 +144,7 @@ The app starts at **http://localhost:3001**. The database file (`vulnerable_app.
 | 1 | SQL Injection | A03:2021 - Injection | `auth_service.py` — string concatenation in queries | **Closed** |
 | 2 | Stored XSS | A03:2021 - Injection | `auth.py` — unescaped username on dashboard | Open |
 | 3 | Reflected XSS | A03:2021 - Injection | `auth.py` — unescaped query param in search | Open |
-| 4 | Session Hijacking | A07:2021 - Auth Failures | `main.py` — hardcoded secret key | Open |
+| 4 | Session Hijacking | A07:2021 - Auth Failures | `main.py` — was a hardcoded secret key; now sourced from `SECRET_KEY` env var with a strong random fallback | **Closed** |
 | 5 | Weak Password Storage | A02:2021 - Crypto Failures | `security.py` — was MD5 (no salt); now bcrypt (cost 12) | **Closed** |
 | 6 | Exposed Database | A01:2021 - Access Control | `auth.py` — unauthenticated `/download/db` (route removed) | **Closed** |
 | 7 | No Rate Limiting | A07:2021 - Auth Failures | Global — no throttling middleware | Open |
@@ -187,7 +187,7 @@ Stop-Process -Id <PID> -Force
 ---
 
 ## Bug Fixes
-The **weak password storage** bug (VULN-5: MD5 → bcrypt) is **fixed** as of **v0.1.1**, the **SQL injection** vulnerability (VULN-1: string concatenation → parameterized queries) is **fixed** as of **v0.1.2**, and the **exposed database** endpoint (VULN-6: unauthenticated `/download/db` → route removed) is **fixed** as of **v0.1.3**. The remaining **five** vulnerabilities below are **still open** and are the ones you should patch.
+The **weak password storage** bug (VULN-5: MD5 → bcrypt) is **fixed** as of **v0.1.1**, the **SQL injection** vulnerability (VULN-1: string concatenation → parameterized queries) is **fixed** as of **v0.1.2**, the **exposed database** endpoint (VULN-6: unauthenticated `/download/db` → route removed) is **fixed** as of **v0.1.3**, and the **session hijacking** vulnerability (VULN-4: hardcoded session secret → env-sourced secret with a strong random fallback) is **fixed** as of **v0.1.4**. The remaining **four** vulnerabilities below are **still open** and are the ones you should patch.
 
 | # | Vulnerability | Description | Status |
 |---|---------------|-------------|--------|
@@ -195,7 +195,7 @@ The **weak password storage** bug (VULN-5: MD5 → bcrypt) is **fixed** as of **
 | 2 | SQL Injection | `auth_service.py` builds queries with raw string concatenation; crafted input can read data or bypass authentication. Fix with parameterized/prepared queries. | **Fixed (v0.1.2)** |
 | 3 | Stored XSS | `auth.py` renders the username on the dashboard without escaping, so a malicious script persists in the database and executes for every viewer. Fix with output escaping/template auto-escape. | Open |
 | 4 | Reflected XSS | The `/search` endpoint echoes the `q` parameter back unescaped, executing injected scripts in the victim's browser. Fix by escaping reflected output. | Open |
-| 5 | Session Hijacking | `main.py` uses a hardcoded session secret key, making session cookies guessable/forgeable. Fix by loading a strong, random secret from the environment. | Open |
+| 5 | Session Hijacking | `main.py` used a hardcoded session secret key, making session cookies guessable/forgeable. Fixed by loading `SECRET_KEY` from the environment with a strong `secrets.token_hex(32)` random fallback, so a fresh checkout never ships a known key. | **Fixed (v0.1.4)** |
 | 6 | Exposed Database | `/download/db` served the entire SQLite file with no authentication or authorization. Fixed by removing the route entirely. | **Fixed (v0.1.3)** |
 | 7 | No Rate Limiting | There is no throttling middleware, leaving login open to brute-force and credential-stuffing attacks. Fix by adding per-IP/per-user rate limiting. | Open |
 | 8 | CSRF | Forms carry no CSRF tokens, allowing cross-site request forgery against authenticated users. Fix by issuing and validating CSRF tokens on all state-changing requests. | Open |
