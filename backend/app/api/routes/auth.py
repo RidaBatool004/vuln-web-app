@@ -1,4 +1,5 @@
 import os
+import html
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -84,12 +85,14 @@ async def welcome_page(request: Request):
     username = request.session.get("username", "")
 
     with open(os.path.join(TEMPLATE_DIR, "dashboard.html"), "r") as f:
-        html = f.read()
+        page = f.read()
 
-    # VULNERABILITY #2: Stored XSS -- username substituted without escaping
-    html = html.replace("{{username}}", username)
+    # FIXED: Stored XSS closed -- username escaped before substitution.
+    # The raw value remains in the session/database (output-encoding fix, not input filtering).
+    safe_username = html.escape(username, quote=True)
+    page = page.replace("{{username}}", safe_username)
 
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=page)
 
 
 @router.get("/logout")
