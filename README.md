@@ -58,19 +58,23 @@ vuln-web-app/
 
 ## Releases & Versions
 
-This repository ships in two tagged releases. Pick the one that matches how you want to learn:
+This repository ships in several tagged releases. The three below are the main anchors — pick the one that matches how you want to learn:
 
 | Version | Who it's for | What you get |
 |---------|--------------|--------------|
 | **v0.1.0** | Students who want to fix the vulnerabilities **from scratch** | The baseline vulnerable app with **all 8 intentional vulnerabilities open** (including the MD5 weak password storage). Your job is to find and patch each one yourself. |
-| **v0.1.1** | Students who want to **study a reference implementation** | Adds the **dark mode toggle** and replaces MD5 with **bcrypt** (VULN-5 fixed). Use it to compare against your own fixes or to see how the bcrypt patch was implemented. |
+| **v0.1.1** | Students who want a **partial reference implementation** | Adds the **dark mode toggle** and replaces MD5 with **bcrypt** (VULN-5 fixed). A good starting point for comparing your own early fixes. |
+| **v1.0.0** | Students who want the **complete reference implementation** | All **8 vulnerabilities fixed** (SQLi, stored & reflected XSS, session hijacking, weak passwords, exposed DB, no rate limiting, CSRF). Study it to see how every patch was implemented. |
+
+The incremental tags between them (**v0.1.2 – v0.1.7**) each close one additional vulnerability — see the [Bug Fixes](#bug-fixes) table for the version-by-version mapping.
 
 ### Download the version you want
 
 **Option A — Download a release archive (no Git required)**
 
-- v0.1.0: https://github.com/arifpucit/vuln-web-app/releases/tag/v0.1.0
-- v0.1.1: https://github.com/arifpucit/vuln-web-app/releases/tag/v0.1.1
+- v0.1.0 (all vulnerabilities open): https://github.com/arifpucit/vuln-web-app/releases/tag/v0.1.0
+- v0.1.1 (dark mode + bcrypt): https://github.com/arifpucit/vuln-web-app/releases/tag/v0.1.1
+- v1.0.0 (all vulnerabilities fixed): https://github.com/arifpucit/vuln-web-app/releases/tag/v1.0.0
 
 Download the `Source code (zip)` or `Source code (tar.gz)` asset for the version you want and extract it.
 
@@ -83,8 +87,11 @@ cd vuln-web-app
 # Work on the fully vulnerable baseline from scratch
 git checkout v0.1.0
 
-# Or study the version with dark mode + bcrypt
+# Or study the partial reference (dark mode + bcrypt)
 git checkout v0.1.1
+
+# Or study the complete reference (all 8 vulnerabilities fixed)
+git checkout v1.0.0
 ```
 
 ---
@@ -104,7 +111,7 @@ git clone https://github.com/arifpucit/vuln-web-app.git
 cd vuln-web-app
 
 # Check out the version you want (see "Releases & Versions" above)
-git checkout v0.1.0   # or: git checkout v0.1.1
+git checkout v0.1.0   # baseline (all open) — or v0.1.1 (partial) / v1.0.0 (all fixed)
 
 # Install dependencies
 uv sync
