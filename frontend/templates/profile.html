@@ -88,6 +88,19 @@
                 <button type="submit" class="btn btn-primary">Update Password</button>
             </form>
         </div>
+
+        <!-- Two-Factor Authentication (Email OTP 2FA, v1.0.6) -->
+        <div class="profile-card">
+            <h2 class="section-title">Two-Factor Authentication</h2>
+            <p class="notice-text" id="twofa-status">Email OTP two-factor authentication is currently <strong id="twofa-state">…</strong>.</p>
+            <p class="form-subtitle">When enabled, signing in requires a 6-digit code emailed to you after your password.</p>
+            <div id="twofa-message" class="profile-message" role="status" aria-live="polite" style="display: none;"></div>
+            <form id="twofa-form">
+                <input type="hidden" name="csrf_token" value="{{csrf_token}}">
+                <input type="hidden" name="enable" id="twofa-enable-field" value="">
+                <button type="submit" class="btn btn-primary" id="twofa-btn">…</button>
+            </form>
+        </div>
     </main>
 
     <script>
@@ -147,6 +160,61 @@
                 show('Something went wrong. Please try again.', false);
             }
         });
+    </script>
+
+    <script>
+        // Two-Factor Authentication toggle (Email OTP 2FA, v1.0.6). The initial
+        // state comes from server-spliced "0"/"1" flags (not user input); the
+        // toggle POSTs urlencoded with the hidden csrf_token, like the change-
+        // password form. Session-gated server-side (no password re-prompt).
+        (function () {
+            var enabled = '{{twofa_enabled}}' === '1';
+            var emailOk = '{{email_configured}}' === '1';
+            var btn = document.getElementById('twofa-btn');
+            var state = document.getElementById('twofa-state');
+            var field = document.getElementById('twofa-enable-field');
+            var form = document.getElementById('twofa-form');
+            var msg = document.getElementById('twofa-message');
+
+            function render() {
+                state.textContent = enabled ? 'enabled' : 'disabled';
+                if (!emailOk && !enabled) {
+                    // Can't enable without SMTP — the OTP could never be delivered.
+                    btn.textContent = 'Enable (requires email setup)';
+                    btn.disabled = true;
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = enabled ? 'Disable 2FA' : 'Enable 2FA';
+                }
+                // The hidden field carries the DESIRED next state for the POST.
+                field.value = enabled ? '0' : '1';
+            }
+            render();
+
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                msg.style.display = 'none';
+                msg.classList.remove('is-error', 'is-success');
+                var body = new URLSearchParams(new FormData(form));
+                try {
+                    var res = await fetch('/profile/2fa', { method: 'POST', body: body });
+                    var data = await res.json();
+                    if (data.success) {
+                        enabled = data.two_factor_enabled;
+                        msg.textContent = data.message;
+                        msg.classList.add('is-success');
+                    } else {
+                        msg.textContent = data.error || 'Could not update 2FA.';
+                        msg.classList.add('is-error');
+                    }
+                } catch (err) {
+                    msg.textContent = 'Something went wrong. Please try again.';
+                    msg.classList.add('is-error');
+                }
+                msg.style.display = 'block';
+                render();
+            });
+        })();
     </script>
 
     <script>

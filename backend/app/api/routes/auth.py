@@ -32,7 +32,7 @@ import html
 import logging
 
 from fastapi import APIRouter, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 
 from app.core.csrf import get_or_create_csrf_token
 from app.core import config
@@ -40,6 +40,7 @@ from app.core.oauth import oauth
 from app.services import auth_service
 from app.services import oauth_service
 from app.services import verification_service
+from app.services import otp_service
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -338,6 +339,17 @@ async def profile_page(request: Request):
     username = request.session.get("username", "")
     email = request.session.get("email", "")
 
+    # Email OTP 2FA (v1.0.6): the session does not carry the 2FA flag, so read it
+    # for the toggle card's initial state (parameterized SELECT -- VULN-1).
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT two_factor_enabled FROM users WHERE id = ?", [user_id]
+        ).fetchone()
+    finally:
+        conn.close()
+    twofa_enabled = bool(row["two_factor_enabled"]) if row else False
+
     with open(os.path.join(TEMPLATE_DIR, "profile.html"), "r") as f:
         page = f.read()
 
@@ -350,7 +362,155 @@ async def profile_page(request: Request):
     page = page.replace("{{username}}", html.escape(username, quote=True))
     page = page.replace("{{email}}", html.escape(email, quote=True))
 
+    # Server-controlled "0"/"1" flags for the 2FA card (not user input).
+    page = page.replace("{{twofa_enabled}}", "1" if twofa_enabled else "0")
+    page = page.replace(
+        "{{email_configured}}", "1" if config.is_email_configured() else "0"
+    )
+
     return HTMLResponse(content=page)
+
+
+@router.post("/profile/2fa")
+async def profile_2fa_post(request: Request, enable: str = Form("")):
+    """Enable/disable Email OTP 2FA for the logged-in user (v1.0.6).
+
+    Session-gated only -- no current-password re-prompt (a deliberate product
+    choice favouring UX; see the spec's NFR-09). The hidden csrf_token and the
+    per-IP rate limit are enforced by middleware before this runs; FastAPI's
+    Form() ignores the extra csrf_token field. Enabling is refused when SMTP is
+    not configured, because a future login could not deliver the OTP.
+    """
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return JSONResponse(content={"error": "Not authenticated"}, status_code=401)
+
+    want_enable = enable == "1"
+    if want_enable and not config.is_email_configured():
+        return JSONResponse(
+            content={
+                "error": "Email delivery is not configured, so OTP 2FA can't be enabled."
+            },
+            status_code=400,
+        )
+    if not otp_service.set_two_factor(user_id, want_enable):
+        return JSONResponse(
+            content={"error": "Could not update the 2FA setting."}, status_code=400
+        )
+    return JSONResponse(
+        content={
+            "success": True,
+            "two_factor_enabled": want_enable,
+            "message": "Two-factor authentication "
+            + ("enabled." if want_enable else "disabled."),
+        }
+    )
+
+
+@router.get("/login/otp")
+async def login_otp_page(request: Request):
+    """Render the OTP entry screen -- only mid-2FA-login (pending marker set).
+
+    Gated on request.session["pending_2fa_user_id"], which auth_service.login()
+    writes after a correct password + verified gate when 2FA is on. With no
+    pending marker (deep link, or after logout) we bounce to /login. The screen
+    reflects NO user input (no email, no code) -- a fixed prompt only (VULN-3).
+    """
+    if not request.session.get("pending_2fa_user_id"):
+        return RedirectResponse(url="/login", status_code=302)
+    page = _load_template("otp_verify.html")
+    # FIXED: CSRF closed -- splice the per-session token into the form's hidden field.
+    token = get_or_create_csrf_token(request)
+    page = page.replace("{{csrf_token}}", html.escape(token, quote=True))
+    return HTMLResponse(content=page)
+
+
+@router.post("/login/otp")
+async def login_otp_post(request: Request, otp: str = Form("")):
+    """Verify the OTP and complete the login by writing the full session.
+
+    Reads the pending user id from the session (set by login()) and the submitted
+    code. On success it clears the pending keys, writes the SAME session keys as
+    a normal login (user_id/username/email) -- this mutation is what makes
+    SessionMiddleware emit the signed Set-Cookie -- and 302-able-redirects to
+    /welcome. Every other outcome returns a fixed JSON error and no session
+    (the raw code is never echoed -- VULN-3).
+    """
+    user_id = request.session.get("pending_2fa_user_id")
+    if not user_id:
+        return JSONResponse(
+            content={"error": "Your login session expired. Please sign in again."},
+            status_code=401,
+        )
+
+    result = otp_service.verify(user_id, otp)
+    if result["status"] == "ok":
+        user = result["user"]
+        request.session.pop("pending_2fa_user_id", None)
+        request.session.pop("pending_2fa_username", None)
+        request.session["user_id"] = user["id"]
+        request.session["username"] = user["username"]
+        request.session["email"] = user["email"]
+        return JSONResponse(content={"success": True, "redirect": "/welcome"})
+
+    messages = {
+        "invalid": "Incorrect code. Please try again.",
+        "too_many": "Too many incorrect attempts. Request a new code.",
+        "expired": "This code has expired. Request a new one.",
+        "no_challenge": "No active code. Please sign in again.",
+    }
+    return JSONResponse(
+        content={"error": messages.get(result["status"], messages["invalid"])},
+        status_code=401,
+    )
+
+
+@router.post("/login/otp/resend")
+async def login_otp_resend(request: Request):
+    """Re-send the OTP during a pending 2FA login, honouring the cooldown.
+
+    Identified by the session's pending marker (no credentials re-submitted). The
+    per-account resend cooldown is enforced via seconds_until_resend; the hidden
+    csrf_token and per-IP rate limit are enforced by middleware (it is a POST).
+    """
+    user_id = request.session.get("pending_2fa_user_id")
+    username = request.session.get("pending_2fa_username", "")
+    if not user_id:
+        return JSONResponse(
+            content={"error": "Your login session expired. Please sign in again."},
+            status_code=401,
+        )
+
+    conn = get_db()
+    try:
+        # FIXED: SQL Injection closed -- parameterized SELECT by primary key.
+        row = conn.execute(
+            "SELECT email, otp_last_sent FROM users WHERE id = ?", [user_id]
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return JSONResponse(content={"error": "Please sign in again."}, status_code=401)
+
+    wait = otp_service.seconds_until_resend(row)
+    if wait > 0:
+        return JSONResponse(
+            content={
+                "error": f"Please wait {wait} seconds before requesting another code."
+            },
+            status_code=429,
+        )
+    if otp_service.start_challenge(user_id, username, row["email"], background=False):
+        return JSONResponse(
+            content={
+                "success": True,
+                "message": "Verification code sent. Check your inbox.",
+            }
+        )
+    return JSONResponse(
+        content={"error": "Could not send the code. Please try again later."},
+        status_code=400,
+    )
 
 
 @router.post("/profile/password")

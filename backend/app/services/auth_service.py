@@ -22,9 +22,11 @@ from starlette.requests import Request
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 
 from app.db.session import get_db
+from app.core import config
 from app.core.security import hash_password, verify_password
 from app.services import verification_service
 from app.services import lockout_service
+from app.services import otp_service
 
 
 def password_meets_policy(password: str) -> bool:
@@ -230,11 +232,45 @@ def login(request: Request, username: str, password: str):
                 },
                 status_code=401,
             )
-        # Populate the session. SessionMiddleware serializes this dict
-        # and writes it back as a signed cookie on the response. The
-        # CSRF token (already in the session from the prior GET /login
-        # page render) is preserved -- we are merging keys, not
-        # replacing the whole session.
+        # Second factor (Email OTP 2FA, v1.0.6): if the user opted in, do NOT
+        # create the session yet. Stash a short-lived pending marker (NOT
+        # user_id, so /welcome and /profile stay gated), email a 6-digit code,
+        # and tell the page to go to the OTP screen. This runs AFTER bcrypt +
+        # the verified gate, so only a fully password-authenticated, verified
+        # user ever reaches it -- the OTP is a true second factor, not a weaker
+        # first one. Auth stays session-only (no JWT): the session is promoted
+        # to a full login only after the code is verified at POST /login/otp.
+        if user["two_factor_enabled"]:
+            if not config.is_email_configured():
+                # Fail closed: 2FA is on but we cannot deliver the code. Never
+                # bypass the second factor by silently completing login.
+                return JSONResponse(
+                    content={
+                        "error": (
+                            "Two-factor authentication is enabled but email "
+                            "delivery is unavailable. Please contact the "
+                            "administrator."
+                        )
+                    },
+                    status_code=401,
+                )
+            request.session["pending_2fa_user_id"] = user["id"]
+            request.session["pending_2fa_username"] = user["username"]
+            # background=True: the daemon-thread SMTP send does not block this
+            # response; the code is already persisted, so a slow/failed send is
+            # recoverable via the OTP screen's resend button.
+            otp_service.start_challenge(
+                user["id"], user["username"], user["email"], background=True
+            )
+            return JSONResponse(
+                content={"otp_required": True, "redirect": "/login/otp"}
+            )
+
+        # No 2FA: populate the session and complete the login. SessionMiddleware
+        # serializes this dict and writes it back as a signed cookie on the
+        # response. The CSRF token (already in the session from the prior GET
+        # /login page render) is preserved -- we are merging keys, not replacing
+        # the whole session.
         request.session["user_id"] = user["id"]
         request.session["username"] = user["username"]
         request.session["email"] = user["email"]

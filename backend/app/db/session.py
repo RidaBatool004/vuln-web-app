@@ -75,6 +75,19 @@ def init_db():
     - `locked_until REAL`: Unix epoch seconds until which the account is locked
       out after too many consecutive failures, or NULL when not locked.
       Compared against `time.time()` on every login / resend.
+    - `two_factor_enabled INTEGER DEFAULT 0`: 1 when the user opted into Email
+      OTP 2FA (Email-OTP-2FA feature, v1.0.6); a correct password then issues an
+      emailed code instead of completing login immediately. Defaults to 0 (off),
+      so existing rows are unaffected without a grandfather UPDATE.
+    - `otp_code TEXT`: the current outstanding 6-digit login OTP (raw), or NULL
+      when no challenge is pending. Single-use: cleared on a successful verify.
+    - `otp_expires REAL`: Unix epoch seconds after which the OTP is dead, or NULL.
+      Compared against `time.time()` on /login/otp.
+    - `otp_attempts INTEGER DEFAULT 0`: wrong-OTP submissions against the current
+      code; reset to 0 on each new code, and the code is invalidated when this
+      reaches OTP_MAX_ATTEMPTS.
+    - `otp_last_sent REAL`: Unix epoch seconds of the most recent OTP send, used
+      to enforce the per-account resend cooldown, or NULL.
     """
     conn = get_db()
     conn.execute(
@@ -120,6 +133,14 @@ def init_db():
         # NO grandfather UPDATE is needed; existing rows are correct as-is.
         "failed_login_attempts": "ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0",
         "locked_until": "ALTER TABLE users ADD COLUMN locked_until REAL",
+        # Email OTP 2FA feature (v1.0.6): five columns. The defaults (0 / NULL)
+        # already mean "2FA off, no challenge outstanding", so -- like the
+        # lockout columns -- NO grandfather UPDATE is needed.
+        "two_factor_enabled": "ALTER TABLE users ADD COLUMN two_factor_enabled INTEGER DEFAULT 0",
+        "otp_code": "ALTER TABLE users ADD COLUMN otp_code TEXT",
+        "otp_expires": "ALTER TABLE users ADD COLUMN otp_expires REAL",
+        "otp_attempts": "ALTER TABLE users ADD COLUMN otp_attempts INTEGER DEFAULT 0",
+        "otp_last_sent": "ALTER TABLE users ADD COLUMN otp_last_sent REAL",
     }
     for column, ddl in migrations.items():
         if column not in existing:

@@ -136,6 +136,10 @@
 
             if (data.success) {
                 window.location.href = data.redirect;
+            } else if (data.otp_required) {
+                // Email OTP 2FA (v1.0.6): the password was correct and a 6-digit
+                // code was emailed -- go to the OTP screen to finish logging in.
+                window.location.href = data.redirect;   // /login/otp
             } else {
                 errorDiv.textContent = data.error;
                 errorDiv.style.display = 'block';
