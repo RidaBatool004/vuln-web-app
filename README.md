@@ -226,6 +226,7 @@ The dark mode toggle is **done** (shipped in v0.1.1). The remaining items are **
 | 9 | QR Code Login | Let users log in by scanning a QR code shown on the login page from an already-authenticated mobile device. | Planned |
 | 10 | CAPTCHA on Login | Add a CAPTCHA (e.g., Google reCAPTCHA or hCaptcha) to the login form to block automated and bot-driven login attempts. | Planned |
 | 11 | Account Lockout | Temporarily lock an account after a configured number of consecutive failed login attempts, with a cooldown timer before retry. | Planned |
+| 12 | Remember Me | Allow users to remain signed in across browser sessions by securely storing a persistent authentication token when they select the Remember Me option during login. The remembered session should expire after a configurable period and be cleared on logout. | Planned |
 
 ---
 
