@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('theme');
+                if (saved !== 'light' && saved !== 'dark') {
+                    saved = null;
+                }
+                var theme = saved;
+                if (!theme && window.matchMedia) {
+                    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                if (!theme) {
+                    theme = 'light';
+                }
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <title>Approve Sign-in - Security Vulnerability Lab</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <!-- Shared Header -->
+    <header class="header">
+        <div class="header-title">Security Vulnerability Lab</div>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark mode">
+            <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
+        </button>
+        <div class="header-logos">
+            <img src="/static/images/PUCIT_Logo.png" alt="PUCIT" class="header-logo">
+            <img src="/static/images/excaliat-logo.png" alt="Excaliat" class="header-logo">
+            <img src="/static/images/blue-logo-scl2.png" alt="FCCU" class="header-logo">
+        </div>
+    </header>
+
+    <!-- The approving username is the only user value here, HTML-escaped on the
+         server before splicing (VULN-2). The raw token is escaped on splice and
+         never reflected as markup (VULN-3). {{valid}} is a server-controlled
+         "0"/"1" flag: "0" hides the buttons for an expired/used/unknown token. -->
+    <main class="notice-wrap">
+        <div class="notice-card">
+            <h2 class="form-title">Approve sign-in?</h2>
+            <p class="form-subtitle">A device is trying to sign in as <strong>{{username}}</strong>.
+               Approve only if this is you.</p>
+
+            <div id="qr-message" class="profile-message" role="status" aria-live="polite" style="display: none;"></div>
+
+            <div id="qr-actions" data-valid="{{valid}}">
+                <form id="qr-approve-form">
+                    <input type="hidden" name="csrf_token" value="{{csrf_token}}">
+                    <input type="hidden" name="token" value="{{token}}">
+                    <button type="submit" class="btn btn-primary">Approve</button>
+                </form>
+                <form id="qr-reject-form" style="margin-top: 12px;">
+                    <input type="hidden" name="csrf_token" value="{{csrf_token}}">
+                    <input type="hidden" name="token" value="{{token}}">
+                    <button type="submit" class="btn btn-google">Reject</button>
+                </form>
+            </div>
+
+            <p id="qr-invalid" style="display: none;">This QR code is no longer valid. Generate a new one on the other device.</p>
+
+            <p class="form-link"><a href="/welcome">Back to dashboard</a></p>
+        </div>
+    </main>
+
+    <script>
+        const actions = document.getElementById('qr-actions');
+        const invalidMsg = document.getElementById('qr-invalid');
+        const messageDiv = document.getElementById('qr-message');
+        const approveForm = document.getElementById('qr-approve-form');
+        const rejectForm = document.getElementById('qr-reject-form');
+
+        // A "0" valid flag means the token is expired / used / unknown: hide the
+        // buttons and show the fixed "no longer valid" message instead.
+        if (actions.getAttribute('data-valid') !== '1') {
+            actions.style.display = 'none';
+            invalidMsg.style.display = 'block';
+        }
+
+        function showMessage(text, ok) {
+            messageDiv.textContent = text;
+            messageDiv.classList.remove('is-error', 'is-success');
+            messageDiv.classList.add(ok ? 'is-success' : 'is-error');
+            messageDiv.style.display = 'block';
+        }
+
+        async function submitDecision(form, url) {
+            // Send as application/x-www-form-urlencoded (not multipart). The CSRF
+            // middleware only parses urlencoded bodies, so wrapping FormData in
+            // URLSearchParams makes the browser set the matching Content-Type and
+            // the hidden csrf_token field is validated correctly.
+            const body = new URLSearchParams(new FormData(form));
+            try {
+                const res = await fetch(url, { method: 'POST', body: body });
+                const data = await res.json();
+                if (data.success) {
+                    actions.style.display = 'none';
+                    showMessage(data.message || 'Done.', true);
+                } else {
+                    showMessage(data.error || 'Something went wrong.', false);
+                }
+            } catch (err) {
+                showMessage('Something went wrong. Please try again.', false);
+            }
+        }
+
+        approveForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            submitDecision(approveForm, '/qr/approve');
+        });
+        rejectForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            submitDecision(rejectForm, '/qr/reject');
+        });
+    </script>
+
+    <script>
+        (function () {
+            var toggle = document.getElementById('theme-toggle');
+            if (!toggle) return;
+
+            function reflect(theme) {
+                var nextAction = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+                var icon = theme === 'dark' ? '☀' : '🌙';
+                toggle.setAttribute('aria-label', nextAction);
+                var iconEl = toggle.querySelector('.theme-toggle-icon');
+                if (iconEl) iconEl.textContent = icon;
+            }
+
+            reflect(document.documentElement.getAttribute('data-theme') || 'light');
+
+            toggle.addEventListener('click', function () {
+                var current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+                var next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                try {
+                    localStorage.setItem('theme', next);
+                } catch (e) {
+                    /* persistence unavailable — in-page state still flips */
+                }
+                reflect(next);
+            });
+        })();
+    </script>
+</body>
+</html>

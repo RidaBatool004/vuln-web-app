@@ -1,0 +1,37 @@
+You are working in the `vuln-web-app` repository (v1.0.8 reference). The spec for
+README feature #8 "CAPTCHA on Login" (Cloudflare Turnstile, release v2.0.0) is
+written at .claude/specs/captcha-on-login.md.
+
+READ first:
+- .claude/specs/captcha-on-login.md            (the spec you are planning from)
+- .claude/specs/qr-code-login-plan.md           (house plan style / closest precedent)
+- backend/app/core/config.py                    (exact lines for the Turnstile block)
+- backend/app/api/routes/auth.py                (login_page:209-221, login_post:224-237)
+- frontend/templates/login.html                 (insertion points for the two placeholders)
+
+Then CREATE EXACTLY ONE file and nothing else: .claude/specs/captcha-on-login-plan.md
+Do NOT write any source code or modify any existing file.
+
+The plan MUST be ordered, surgical, and individually testable, and MUST cover:
+- Step-by-step edits with concrete code blocks for: core/config.py (settings + gate),
+  the new core/captcha.py (stdlib urllib siteverify, fail-open), auth.py (import; login_page
+  splice of {{turnstile_head}}/{{turnstile_widget}} only when configured; login_post Form
+  alias "cf-turnstile-response" + the pre-check returning 400 before auth_service.login()),
+  login.html (two additive placeholders, NO JS change), styles.css (small .cf-turnstile block),
+  .env.example (key placeholders + "where to get these"), README.md (v2.0.0 row, feature #8 ->
+  Done, a "CAPTCHA on Login — Setup" section, note NO API-endpoint change), CLAUDE.md
+  (integration subsection, Important-Rules entry, Specification-Hierarchy item 20), and the
+  three docs/prompts files.
+- An ordering rationale (config -> service -> route -> template -> docs).
+- Risk notes: the sync urllib call inside async login_post (bounded by TURNSTILE_HTTP_TIMEOUT,
+  consistent with existing sync calls); the REQUIRED Form alias for the hyphenated field name;
+  the both-keys gate preventing a half-configured state.
+- A verification section mapping to the spec's AC/TC: unconfigured degrade, configured happy
+  path (Cloudflare test keys), missing/invalid token -> 400, fail-open on unreachable provider,
+  and file/dependency/schema audits (git diff empty for the MUST-NOT list; pyproject/uv.lock
+  unchanged; PRAGMA table_info(users) unchanged; app boots; all 8 vulns closed).
+
+Hard constraints to restate in the plan: NO schema change (db/session.py untouched), NO new
+dependency, auth_service.login() and all middleware modules untouched.
+
+Output only that one plan file. Confirm the path when done.

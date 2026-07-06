@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('theme');
+                if (saved !== 'light' && saved !== 'dark') {
+                    saved = null;
+                }
+                var theme = saved;
+                if (!theme && window.matchMedia) {
+                    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                if (!theme) {
+                    theme = 'light';
+                }
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <title>Verify Login - Security Vulnerability Lab</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <!-- Shared Header -->
+    <header class="header">
+        <div class="header-title">Security Vulnerability Lab</div>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark mode">
+            <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
+        </button>
+        <div class="header-logos">
+            <img src="/static/images/PUCIT_Logo.png" alt="PUCIT" class="header-logo">
+            <img src="/static/images/excaliat-logo.png" alt="Excaliat" class="header-logo">
+            <img src="/static/images/blue-logo-scl2.png" alt="FCCU" class="header-logo">
+        </div>
+    </header>
+
+    <!-- The TOTP screen reflects NO user input (no secret, no code) — fixed,
+         server-controlled strings only (VULN-3 posture). The code comes from the
+         user's authenticator app and is verified server-side. There is no resend
+         button: nothing is delivered (the code is time-based, in the app). -->
+    <main class="notice-wrap">
+        <div class="notice-card">
+            <h2 class="form-title">Enter your authenticator code</h2>
+            <p class="form-subtitle">Open your authenticator app and enter the current 6-digit code to finish signing in.</p>
+
+            <div id="error-message" class="error-message" style="display: none;"></div>
+
+            <form id="totp-form">
+                <input type="hidden" name="csrf_token" value="{{csrf_token}}">
+                <div class="form-group">
+                    <label class="form-label" for="code">6-digit code</label>
+                    <input type="text" id="code" name="code" class="form-input"
+                           inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+                           pattern="[0-9]*" placeholder="123456" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Verify</button>
+            </form>
+
+            <p class="form-link"><a href="/login">Back to login</a></p>
+        </div>
+    </main>
+
+    <script>
+        const form = document.getElementById('totp-form');
+        const errorDiv = document.getElementById('error-message');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorDiv.style.display = 'none';
+
+            // Send as application/x-www-form-urlencoded (not multipart). The CSRF
+            // middleware only parses urlencoded bodies, so wrapping the FormData
+            // in URLSearchParams makes the browser set the matching Content-Type
+            // and the csrf_token field is validated correctly.
+            const body = new URLSearchParams(new FormData(form));
+            try {
+                const res = await fetch('/login/totp', { method: 'POST', body: body });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.href = data.redirect;
+                } else {
+                    errorDiv.textContent = data.error;
+                    errorDiv.style.display = 'block';
+                }
+            } catch (err) {
+                errorDiv.textContent = 'Something went wrong. Please try again.';
+                errorDiv.style.display = 'block';
+            }
+        });
+    </script>
+
+    <script>
+        (function () {
+            var toggle = document.getElementById('theme-toggle');
+            if (!toggle) return;
+
+            function reflect(theme) {
+                var nextAction = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+                var icon = theme === 'dark' ? '☀' : '🌙';
+                toggle.setAttribute('aria-label', nextAction);
+                var iconEl = toggle.querySelector('.theme-toggle-icon');
+                if (iconEl) iconEl.textContent = icon;
+            }
+
+            reflect(document.documentElement.getAttribute('data-theme') || 'light');
+
+            toggle.addEventListener('click', function () {
+                var current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+                var next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                try {
+                    localStorage.setItem('theme', next);
+                } catch (e) {
+                    /* persistence unavailable — in-page state still flips */
+                }
+                reflect(next);
+            });
+        })();
+    </script>
+</body>
+</html>

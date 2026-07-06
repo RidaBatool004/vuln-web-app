@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('theme');
+                if (saved !== 'light' && saved !== 'dark') {
+                    saved = null;
+                }
+                var theme = saved;
+                if (!theme && window.matchMedia) {
+                    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                if (!theme) {
+                    theme = 'light';
+                }
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <title>Email Verification Not Configured - Security Vulnerability Lab</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <!-- Shared Header -->
+    <header class="header">
+        <div class="header-title">Security Vulnerability Lab</div>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark mode">
+            <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
+        </button>
+        <div class="header-logos">
+            <img src="/static/images/PUCIT_Logo.png" alt="PUCIT" class="header-logo">
+            <img src="/static/images/excaliat-logo.png" alt="Excaliat" class="header-logo">
+            <img src="/static/images/blue-logo-scl2.png" alt="FCCU" class="header-logo">
+        </div>
+    </header>
+
+    <!-- Static notice page: no user input is reflected here (VULN-2/3 N/A). -->
+    <main class="notice-wrap">
+        <div class="notice-card">
+            <h2 class="form-title">Sign-up isn't available yet</h2>
+            <p class="form-subtitle">
+                New accounts need email verification, and this copy of the app
+                doesn't have an email (SendGrid) sender configured yet.
+            </p>
+            <p class="notice-text">
+                To enable sign-up, an operator must set <code>SENDGRID_API_KEY</code>
+                and <code>SENDGRID_FROM</code> (a SendGrid-verified sender address)
+                in the environment — locally in <code>.env</code> (copied from
+                <code>.env.example</code>), or as environment variables on the host
+                (e.g. Render). The full step-by-step is in the README's
+                "Email Verification — Setup" section. After setting the values,
+                restart the app.
+            </p>
+            <p class="notice-text">
+                Already have an account? You can still log in.
+            </p>
+            <a href="/login" class="btn btn-primary">Back to Login</a>
+        </div>
+    </main>
+
+    <script>
+        (function () {
+            var toggle = document.getElementById('theme-toggle');
+            if (!toggle) return;
+
+            function reflect(theme) {
+                var nextAction = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+                var icon = theme === 'dark' ? '☀' : '🌙';
+                toggle.setAttribute('aria-label', nextAction);
+                var iconEl = toggle.querySelector('.theme-toggle-icon');
+                if (iconEl) iconEl.textContent = icon;
+            }
+
+            reflect(document.documentElement.getAttribute('data-theme') || 'light');
+
+            toggle.addEventListener('click', function () {
+                var current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+                var next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                try {
+                    localStorage.setItem('theme', next);
+                } catch (e) {
+                    /* persistence unavailable — in-page state still flips */
+                }
+                reflect(next);
+            });
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('theme');
+                if (saved !== 'light' && saved !== 'dark') {
+                    saved = null;
+                }
+                var theme = saved;
+                if (!theme && window.matchMedia) {
+                    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                if (!theme) {
+                    theme = 'light';
+                }
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <title>Google Login Not Configured - Security Vulnerability Lab</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <!-- Shared Header -->
+    <header class="header">
+        <div class="header-title">Security Vulnerability Lab</div>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark mode">
+            <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
+        </button>
+        <div class="header-logos">
+            <img src="/static/images/PUCIT_Logo.png" alt="PUCIT" class="header-logo">
+            <img src="/static/images/excaliat-logo.png" alt="Excaliat" class="header-logo">
+            <img src="/static/images/blue-logo-scl2.png" alt="FCCU" class="header-logo">
+        </div>
+    </header>
+
+    <!-- Static notice page: no user input is reflected here (VULN-2/3 N/A). -->
+    <main class="notice-wrap">
+        <div class="notice-card">
+            <h2 class="form-title">Google login isn't configured</h2>
+            <p class="form-subtitle">
+                "Continue with Google" needs Google OAuth credentials, which this
+                copy of the app doesn't have set yet.
+            </p>
+            <p class="notice-text">
+                To enable it, an operator must create a Google OAuth client, then
+                copy <code>.env.example</code> to <code>.env</code> and fill in
+                <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code>.
+                The full step-by-step walkthrough is in the project docs
+                (<code>docs/continue-with-google-explained.md</code>) and the
+                README's "Continue with Google — Setup" section.
+            </p>
+            <p class="notice-text">
+                You can still sign in with a username and password in the meantime.
+            </p>
+            <a href="/login" class="btn btn-primary">Back to Login</a>
+            <p class="form-link"><a href="/signup">Create an account instead</a></p>
+        </div>
+    </main>
+
+    <script>
+        (function () {
+            var toggle = document.getElementById('theme-toggle');
+            if (!toggle) return;
+
+            function reflect(theme) {
+                var nextAction = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+                var icon = theme === 'dark' ? '☀' : '🌙';
+                toggle.setAttribute('aria-label', nextAction);
+                var iconEl = toggle.querySelector('.theme-toggle-icon');
+                if (iconEl) iconEl.textContent = icon;
+            }
+
+            reflect(document.documentElement.getAttribute('data-theme') || 'light');
+
+            toggle.addEventListener('click', function () {
+                var current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+                var next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                try {
+                    localStorage.setItem('theme', next);
+                } catch (e) {
+                    /* persistence unavailable — in-page state still flips */
+                }
+                reflect(next);
+            });
+        })();
+    </script>
+</body>
+</html>

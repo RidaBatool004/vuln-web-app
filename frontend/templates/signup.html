@@ -79,6 +79,34 @@
                         <label class="form-label" for="password">Password</label>
                         <input type="password" id="password" name="password" class="form-input" placeholder="Create a password" required>
                     </div>
+                    <div class="password-strength-meter strength-empty" id="password-strength-meter">
+                        <div class="password-strength-bar">
+                            <div class="password-strength-bar-fill strength-empty" id="password-strength-bar-fill" style="width: 0%;"></div>
+                        </div>
+                        <div class="password-strength-label" id="password-strength-label" aria-live="polite"></div>
+                        <ul class="password-criteria-list" id="password-criteria-list" aria-label="Password requirements">
+                            <li class="password-criteria-item is-unmet" data-criterion="length">
+                                <span class="password-criteria-marker" aria-hidden="true">✗</span>
+                                At least 8 characters
+                            </li>
+                            <li class="password-criteria-item is-unmet" data-criterion="lowercase">
+                                <span class="password-criteria-marker" aria-hidden="true">✗</span>
+                                At least one lowercase letter (a–z)
+                            </li>
+                            <li class="password-criteria-item is-unmet" data-criterion="uppercase">
+                                <span class="password-criteria-marker" aria-hidden="true">✗</span>
+                                At least one uppercase letter (A–Z)
+                            </li>
+                            <li class="password-criteria-item is-unmet" data-criterion="digit">
+                                <span class="password-criteria-marker" aria-hidden="true">✗</span>
+                                At least one digit (0–9)
+                            </li>
+                            <li class="password-criteria-item is-unmet" data-criterion="special">
+                                <span class="password-criteria-marker" aria-hidden="true">✗</span>
+                                At least one special character
+                            </li>
+                        </ul>
+                    </div>
                     <div class="form-group">
                         <label class="form-label" for="confirm_password">Confirm Password</label>
                         <input type="password" id="confirm_password" class="form-input" placeholder="Confirm your password" required>
@@ -86,6 +114,21 @@
                     </div>
                     <button type="submit" class="btn btn-primary">Create Account</button>
                 </form>
+
+                <div class="auth-divider"><span>or</span></div>
+
+                <!-- Continue with Google: a GET link (no form, no CSRF token).
+                     The OAuth `state` param is the flow's CSRF defense. If
+                     Google isn't configured it lands on the setup page. -->
+                <a href="/auth/google/login" class="btn btn-google">
+                    <svg class="btn-google-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                    </svg>
+                    Continue with Google
+                </a>
 
                 <p class="form-link">Already have an account? <a href="/login">Sign in</a></p>
             </div>
@@ -107,6 +150,79 @@
                 passwordError.style.display = 'none';
             }
         });
+    </script>
+
+    <script>
+        (function () {
+            var password = document.getElementById('password');
+            var meter = document.getElementById('password-strength-meter');
+            var fill = document.getElementById('password-strength-bar-fill');
+            var label = document.getElementById('password-strength-label');
+            var list = document.getElementById('password-criteria-list');
+            if (!password || !meter || !fill || !label || !list) return;
+
+            var items = {};
+            var nodes = list.querySelectorAll('.password-criteria-item');
+            for (var i = 0; i < nodes.length; i++) {
+                var key = nodes[i].getAttribute('data-criterion');
+                if (key) items[key] = nodes[i];
+            }
+            if (!items.length || !items.lowercase || !items.uppercase || !items.digit || !items.special) return;
+
+            var LEVELS = [
+                { name: '',          width: 0,   cls: 'strength-empty' },
+                { name: 'Very Weak', width: 20,  cls: 'strength-very-weak' },
+                { name: 'Weak',      width: 40,  cls: 'strength-weak' },
+                { name: 'Fair',      width: 60,  cls: 'strength-fair' },
+                { name: 'Good',      width: 80,  cls: 'strength-good' },
+                { name: 'Strong',    width: 100, cls: 'strength-strong' }
+            ];
+            var ALL_CLASSES = ['strength-empty','strength-very-weak','strength-weak','strength-fair','strength-good','strength-strong'];
+
+            function setItem(node, met) {
+                node.classList.toggle('is-met', met);
+                node.classList.toggle('is-unmet', !met);
+                var marker = node.querySelector('.password-criteria-marker');
+                if (marker) marker.textContent = met ? '✓' : '✗';
+            }
+
+            function swapClass(el, next) {
+                for (var i = 0; i < ALL_CLASSES.length; i++) el.classList.remove(ALL_CLASSES[i]);
+                el.classList.add(next);
+            }
+
+            function update() {
+                try {
+                    var v = password.value || '';
+                    var checks = {
+                        length:    v.length >= 8,
+                        lowercase: /[a-z]/.test(v),
+                        uppercase: /[A-Z]/.test(v),
+                        digit:     /[0-9]/.test(v),
+                        special:   /[^A-Za-z0-9]/.test(v)
+                    };
+                    var met = 0;
+                    for (var k in checks) if (checks[k]) met++;
+
+                    setItem(items.length,    checks.length);
+                    setItem(items.lowercase, checks.lowercase);
+                    setItem(items.uppercase, checks.uppercase);
+                    setItem(items.digit,     checks.digit);
+                    setItem(items.special,   checks.special);
+
+                    var level = LEVELS[met];
+                    fill.style.width = level.width + '%';
+                    swapClass(fill, level.cls);
+                    swapClass(meter, level.cls);
+                    label.textContent = level.name;
+                } catch (e) {
+                    /* advisory UX — never block typing on a meter error */
+                }
+            }
+
+            password.addEventListener('input', update);
+            update();
+        })();
     </script>
 
     <script>

@@ -25,6 +25,9 @@
     </script>
     <title>Login - Security Vulnerability Lab</title>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <!-- CAPTCHA on Login (v2.0.0): the Cloudflare Turnstile loader script, spliced
+         in by GET /login only when Turnstile is configured (else this is empty). -->
+    {{turnstile_head}}
 </head>
 <body>
     <!-- Shared Header -->
@@ -67,6 +70,15 @@
 
                 <div id="error-message" class="error-message" style="display: none;"></div>
 
+                <!-- Shown only when login fails because the email isn't verified
+                     yet (v1.0.4). The resend reuses the username+password just
+                     entered; the server re-checks them with bcrypt before
+                     re-sending, so it can't be used to spam a stranger. -->
+                <div id="resend-area" style="display: none; margin-bottom: 16px;">
+                    <button type="button" id="resend-btn" class="btn btn-primary">Resend verification email</button>
+                    <div id="resend-message" class="error-message" style="display: none; margin-top: 12px;"></div>
+                </div>
+
                 <form id="login-form">
                     <input type="hidden" name="csrf_token" value="{{csrf_token}}">
                     <div class="form-group">
@@ -77,8 +89,40 @@
                         <label class="form-label" for="password">Password</label>
                         <input type="password" id="password" name="password" class="form-input" placeholder="Enter your password" required>
                     </div>
+                    <!-- CAPTCHA on Login (v2.0.0): the Turnstile widget, spliced in by
+                         GET /login only when configured (else empty). The widget auto-
+                         injects a hidden `cf-turnstile-response` field into this form, so
+                         the existing URLSearchParams(FormData) submit sends the token with
+                         no JS change; POST /login verifies it before the password check. -->
+                    {{turnstile_widget}}
                     <button type="submit" class="btn btn-primary">Sign In</button>
                 </form>
+
+                <div class="auth-divider"><span>or</span></div>
+
+                <!-- Continue with Google: a GET link (no form, no CSRF token).
+                     The OAuth `state` param is the flow's CSRF defense. If
+                     Google isn't configured it lands on the setup page. -->
+                <a href="/auth/google/login" class="btn btn-google">
+                    <svg class="btn-google-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                    </svg>
+                    Continue with Google
+                </a>
+
+                <!-- QR Code Login (v1.0.8): scan from an already-signed-in device.
+                     The panel asks GET /qr/create for a token + QR image, then
+                     polls GET /qr/status until the other device approves. No
+                     credential is entered here -- the approving device vouches. -->
+                <div class="qr-panel">
+                    <div class="auth-divider"><span>or scan to sign in</span></div>
+                    <img id="qr-image" alt="Login QR code" style="display: none;">
+                    <p id="qr-hint" class="form-subtitle">Loading QR…</p>
+                    <button type="button" id="qr-refresh" class="btn btn-google" style="display: none;">Show new QR</button>
+                </div>
 
                 <p class="form-link">Don't have an account? <a href="/signup">Sign up</a></p>
             </div>
@@ -88,10 +132,16 @@
     <script>
         const form = document.getElementById('login-form');
         const errorDiv = document.getElementById('error-message');
+        const resendArea = document.getElementById('resend-area');
+        const resendBtn = document.getElementById('resend-btn');
+        const resendMsg = document.getElementById('resend-message');
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             errorDiv.style.display = 'none';
+            // Hide any prior resend affordance/feedback on a new attempt.
+            resendArea.style.display = 'none';
+            resendMsg.style.display = 'none';
 
             // Send as application/x-www-form-urlencoded (not multipart). The
             // CSRF middleware only parses urlencoded bodies, so wrapping the
@@ -106,11 +156,103 @@
 
             if (data.success) {
                 window.location.href = data.redirect;
+            } else if (data.otp_required) {
+                // Email OTP 2FA (v1.0.6): the password was correct and a 6-digit
+                // code was emailed -- go to the OTP screen to finish logging in.
+                window.location.href = data.redirect;   // /login/otp
             } else {
                 errorDiv.textContent = data.error;
                 errorDiv.style.display = 'block';
+                // Email-verification gate (v1.0.4): the password was correct but
+                // the account isn't verified -- offer to re-send the link.
+                if (data.unverified) {
+                    resendArea.style.display = 'block';
+                }
             }
         });
+
+        // Resend the verification email using the credentials already typed
+        // into the form. Posts urlencoded (same reason as login) so the hidden
+        // csrf_token validates; the server re-checks the password with bcrypt.
+        resendBtn.addEventListener('click', async () => {
+            resendMsg.style.display = 'none';
+            const body = new URLSearchParams({
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value,
+                csrf_token: form.querySelector('input[name="csrf_token"]').value
+            });
+            try {
+                const response = await fetch('/verify/resend', { method: 'POST', body });
+                const data = await response.json();
+                resendMsg.textContent = data.message || data.error || 'Could not resend the email.';
+            } catch (err) {
+                resendMsg.textContent = 'Could not resend the email. Please try again.';
+            }
+            resendMsg.style.display = 'block';
+        });
+    </script>
+
+    <script>
+        // QR Code Login (v1.0.8). Ask the server for a token + QR, show it, then
+        // poll until the other (already-signed-in) device approves. On approval the
+        // server has written this browser's session, so we just follow the redirect.
+        (function () {
+            var img = document.getElementById('qr-image');
+            var hint = document.getElementById('qr-hint');
+            var refresh = document.getElementById('qr-refresh');
+            var token = null;
+            var pollMs = 2000;
+            var pollTimer = null;
+
+            async function poll() {
+                if (!token) return;
+                try {
+                    var res = await fetch('/qr/status?token=' + encodeURIComponent(token));
+                    var data = await res.json();
+                    if (data.status === 'approved') {
+                        window.location.href = data.redirect;
+                        return;
+                    }
+                    if (data.status === 'pending') {
+                        pollTimer = setTimeout(poll, pollMs);
+                        return;
+                    }
+                    // rejected / expired / invalid: stop and offer a fresh QR.
+                    var msg = data.status === 'rejected'
+                        ? 'Request denied on the other device.'
+                        : 'This QR code expired.';
+                    hint.textContent = msg;
+                    img.style.display = 'none';
+                    refresh.style.display = 'inline-flex';
+                } catch (err) {
+                    pollTimer = setTimeout(poll, pollMs);
+                }
+            }
+
+            async function newQr() {
+                if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+                refresh.style.display = 'none';
+                hint.textContent = 'Loading QR…';
+                img.style.display = 'none';
+                try {
+                    var res = await fetch('/qr/create');
+                    var data = await res.json();
+                    token = data.token;
+                    pollMs = (data.poll_interval || 2) * 1000;
+                    if (data.qr_data_uri) {
+                        img.src = data.qr_data_uri;
+                        img.style.display = 'block';
+                    }
+                    hint.textContent = 'Scan with a signed-in device to sign in.';
+                    pollTimer = setTimeout(poll, pollMs);
+                } catch (err) {
+                    hint.textContent = 'Could not load a QR code. Please refresh the page.';
+                }
+            }
+
+            refresh.addEventListener('click', newQr);
+            newQr();
+        })();
     </script>
 
     <script>

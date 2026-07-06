@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('theme');
+                if (saved !== 'light' && saved !== 'dark') {
+                    saved = null;
+                }
+                var theme = saved;
+                if (!theme && window.matchMedia) {
+                    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                if (!theme) {
+                    theme = 'light';
+                }
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <title>Verify Login - Security Vulnerability Lab</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <!-- Shared Header -->
+    <header class="header">
+        <div class="header-title">Security Vulnerability Lab</div>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark mode">
+            <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
+        </button>
+        <div class="header-logos">
+            <img src="/static/images/PUCIT_Logo.png" alt="PUCIT" class="header-logo">
+            <img src="/static/images/excaliat-logo.png" alt="Excaliat" class="header-logo">
+            <img src="/static/images/blue-logo-scl2.png" alt="FCCU" class="header-logo">
+        </div>
+    </header>
+
+    <!-- The OTP screen reflects NO user input (no email, no code) — fixed,
+         server-controlled strings only (VULN-3 posture). The unguessable code
+         is delivered by email and verified server-side. -->
+    <main class="notice-wrap">
+        <div class="notice-card">
+            <h2 class="form-title">Enter your verification code</h2>
+            <p class="form-subtitle">We emailed a 6-digit code to your registered address. Enter it below to finish signing in.</p>
+
+            <div id="error-message" class="error-message" style="display: none;"></div>
+
+            <form id="otp-form">
+                <input type="hidden" name="csrf_token" value="{{csrf_token}}">
+                <div class="form-group">
+                    <label class="form-label" for="otp">6-digit code</label>
+                    <input type="text" id="otp" name="otp" class="form-input"
+                           inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+                           pattern="[0-9]*" placeholder="123456" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Verify</button>
+            </form>
+
+            <button type="button" id="resend-btn" class="btn btn-google" style="margin-top: 16px;">Resend code</button>
+
+            <p class="form-link"><a href="/login">Back to login</a></p>
+        </div>
+    </main>
+
+    <script>
+        const form = document.getElementById('otp-form');
+        const errorDiv = document.getElementById('error-message');
+        const resendBtn = document.getElementById('resend-btn');
+        const csrf = form.querySelector('input[name="csrf_token"]').value;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorDiv.style.display = 'none';
+
+            // Send as application/x-www-form-urlencoded (not multipart). The CSRF
+            // middleware only parses urlencoded bodies, so wrapping the FormData
+            // in URLSearchParams makes the browser set the matching Content-Type
+            // and the csrf_token field is validated correctly.
+            const body = new URLSearchParams(new FormData(form));
+            try {
+                const res = await fetch('/login/otp', { method: 'POST', body: body });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.href = data.redirect;
+                } else {
+                    errorDiv.textContent = data.error;
+                    errorDiv.style.display = 'block';
+                }
+            } catch (err) {
+                errorDiv.textContent = 'Something went wrong. Please try again.';
+                errorDiv.style.display = 'block';
+            }
+        });
+
+        // Resend cooldown countdown (mirrors OTP_RESEND_COOLDOWN_SECONDS; the
+        // server is the authoritative gate and returns 429 if pressed early).
+        let cooldown = 0;
+        function tick() {
+            if (cooldown > 0) {
+                resendBtn.disabled = true;
+                resendBtn.textContent = 'Resend code (' + cooldown + 's)';
+                cooldown -= 1;
+                setTimeout(tick, 1000);
+            } else {
+                resendBtn.disabled = false;
+                resendBtn.textContent = 'Resend code';
+            }
+        }
+
+        resendBtn.addEventListener('click', async () => {
+            errorDiv.style.display = 'none';
+            // Identified by the session's pending marker; the body needs only the
+            // CSRF token (no credentials re-submitted).
+            const body = new URLSearchParams({ csrf_token: csrf });
+            try {
+                const res = await fetch('/login/otp/resend', { method: 'POST', body: body });
+                const data = await res.json();
+                errorDiv.textContent = data.message || data.error || 'Could not resend the code.';
+                if (data.success) {
+                    cooldown = 60;
+                    tick();
+                }
+            } catch (err) {
+                errorDiv.textContent = 'Could not resend the code. Please try again.';
+            }
+            errorDiv.style.display = 'block';
+        });
+    </script>
+
+    <script>
+        (function () {
+            var toggle = document.getElementById('theme-toggle');
+            if (!toggle) return;
+
+            function reflect(theme) {
+                var nextAction = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+                var icon = theme === 'dark' ? '☀' : '🌙';
+                toggle.setAttribute('aria-label', nextAction);
+                var iconEl = toggle.querySelector('.theme-toggle-icon');
+                if (iconEl) iconEl.textContent = icon;
+            }
+
+            reflect(document.documentElement.getAttribute('data-theme') || 'light');
+
+            toggle.addEventListener('click', function () {
+                var current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+                var next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                try {
+                    localStorage.setItem('theme', next);
+                } catch (e) {
+                    /* persistence unavailable — in-page state still flips */
+                }
+                reflect(next);
+            });
+        })();
+    </script>
+</body>
+</html>

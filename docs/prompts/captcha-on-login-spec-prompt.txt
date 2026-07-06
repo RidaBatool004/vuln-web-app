@@ -1,0 +1,55 @@
+You are working in the `vuln-web-app` repository (the v1.0.8 reference, all 8
+vulnerabilities closed). We are adding README "Feature Enhancements" item #8,
+"CAPTCHA on Login", as release v2.0.0.
+
+READ first, to ground the spec in the real code and house style:
+- .claude/specs/account-lockout.md            (study its section structure/style)
+- .claude/specs/qr-code-login.md               (the closest precedent: core/ module,
+                                                 login.html splice, is_*_configured degrade,
+                                                 no-schema-change shape)
+- backend/app/core/config.py                   (Google block + is_google_configured())
+- backend/app/core/oauth.py, backend/app/core/mailer.py  (how outbound calls are made)
+- backend/app/api/routes/auth.py               (login_page GET + login_post POST)
+- frontend/templates/login.html                (form submit, csrf splice, error path)
+- CLAUDE.md, README.md                          (conventions, version table)
+
+Then CREATE EXACTLY ONE file and nothing else: .claude/specs/captcha-on-login.md
+Do NOT write any source code, plan file, or modify any existing file.
+
+The spec MUST follow the same documentation style as the account-lockout / qr-code-login
+specs and contain, in order: Title + Overview/Purpose; Design Decisions (product-owner
+choices); Scope & Non-Goals (incl. an "all 8 vulnerabilities stay closed" subsection);
+Affected Files (with a MUST-NOT-modify list + expected git status); Functional Requirements
+(FR-XX); Non-Functional Requirements (NFR-XX); Success Paths (SP-XX); Edge Cases (EC-XX);
+Acceptance Criteria (AC-XX); Test Cases (table); Verification Steps (exact commands/URLs).
+
+Locked product-owner decisions (encode these exactly):
+1. Provider = Cloudflare Turnstile, using the user's own real site/secret keys.
+2. Trigger = ALWAYS on POST /login (when configured).
+3. Scope = login form only (OAuth GET / signup / QR / profile NOT gated).
+4. Unconfigured degrade = with no keys, no widget renders and POST /login behaves
+   byte-for-byte as today (a fresh clone must still log in) — mirror the Google/SMTP degrade.
+5. Provider unreachable (keys set) = FAIL-OPEN (allow + log), opposite of CSRF's fail-closed,
+   same rationale as the rate limiter / account lockout.
+
+Design constraints the spec must require:
+- NO database-schema change (token verified live; db/session.py untouched).
+- NO new Python dependency — siteverify uses stdlib urllib (mirror mailer's smtplib posture).
+- New module backend/app/core/captcha.py with verify(token)->bool: empty token -> False;
+  Cloudflare success true/false -> True/False; any exception -> True (fail-open) + warning;
+  remoteip OMITTED; never raises; never logs the secret key or the raw token.
+- core/config.py gains TURNSTILE_SITE_KEY / TURNSTILE_SECRET_KEY / TURNSTILE_HTTP_TIMEOUT and
+  is_captcha_configured() (both keys required), mirroring the Google block. Secret key is a
+  real secret: env/.env only, never committed, never logged.
+- auth.py: login_page splices {{turnstile_head}} (script) + {{turnstile_widget}}
+  (<div class="cf-turnstile" data-sitekey="<html.escape'd site key>">) only when configured,
+  else "". login_post reads cf_turnstile_response via Form("", alias="cf-turnstile-response")
+  and, when configured, returns 400 {"error":"CAPTCHA verification failed. Please try again."}
+  if verify() is false — BEFORE calling auth_service.login(). auth_service.login() is NOT modified.
+- login.html: additive placeholders only, NO JS change (Turnstile injects the hidden
+  cf-turnstile-response field; the existing URLSearchParams submit + errorDiv path handle it).
+- All 8 vulnerabilities stay closed; the login POST keeps its csrf_token (VULN-8) and rate
+  limit (VULN-7); the spliced site key is html.escape'd (VULN-2); the token is never
+  reflected/logged (VULN-3).
+
+Output only that one spec file. Confirm the path when done.

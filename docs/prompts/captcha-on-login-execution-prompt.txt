@@ -1,0 +1,48 @@
+You are working in the `vuln-web-app` repository (v1.0.8 reference) on branch
+feature/captcha. Implement README feature #8 "CAPTCHA on Login" (Cloudflare
+Turnstile, release v2.0.0) EXACTLY as specified.
+
+READ first and follow precisely:
+- .claude/specs/captcha-on-login.md          (the spec — authoritative)
+- .claude/specs/captcha-on-login-plan.md      (the step-by-step plan — follow in order)
+- CLAUDE.md                                    (Important Rules — all 8 vulns stay closed)
+
+Then implement the plan. Create/modify ONLY these files:
+  NEW:      backend/app/core/captcha.py
+  MODIFIED: backend/app/core/config.py
+            backend/app/api/routes/auth.py
+            frontend/templates/login.html
+            frontend/static/css/styles.css
+            .env.example
+            README.md
+            CLAUDE.md
+
+Do NOT modify (git diff MUST stay empty for these):
+  backend/app/main.py, backend/app/db/session.py (NO schema change),
+  backend/app/services/* (auth_service.login() and all services untouched),
+  backend/app/core/security.py, core/csrf.py, core/rate_limit.py, core/oauth.py,
+  core/mailer.py, core/qr_login.py, every template except login.html,
+  pyproject.toml, backend/pyproject.toml, uv.lock (NO new dependency).
+
+Non-negotiable invariants:
+- captcha.verify() uses stdlib urllib only; empty token -> False; success true/false ->
+  True/False; ANY exception -> True (FAIL-OPEN) + logger.warning; remoteip omitted; never
+  raises; never logs the secret key or token.
+- login_post verifies the token BEFORE auth_service.login(), only when is_captcha_configured();
+  Form alias "cf-turnstile-response" is REQUIRED (hyphenated field name).
+- login_page splices the widget/script only when configured (else ""); site key is
+  html.escape(..., quote=True)'d.
+- Unconfigured => no widget + login behaves exactly as today.
+- All 8 vulnerabilities remain closed; csrf_token + rate limit on POST /login unchanged.
+
+After implementing, VERIFY (report results):
+1. `uv run backend/app/main.py` boots with no traceback.
+2. Unconfigured: GET /login has no `cf-turnstile`; a correct-password login -> 200.
+3. Configured (use Cloudflare test keys): GET /login shows the widget; a valid token +
+   correct password -> 200; an empty/invalid token -> 400 {"error":"CAPTCHA verification
+   failed. Please try again."} with no session.
+4. Fail-open: with the verify host unreachable, a correct-password login still -> 200 (warn logged).
+5. Audits: `git diff --stat` empty for the MUST-NOT list; pyproject/uv.lock unchanged;
+   `PRAGMA table_info(users)` unchanged; README feature #8 = Done (v2.0.0); CLAUDE.md updated.
+
+Confirm the final `git status --porcelain` matches the spec's expected list when done.
