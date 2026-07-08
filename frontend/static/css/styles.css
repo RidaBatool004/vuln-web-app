@@ -977,3 +977,31 @@ a:hover {
 .cf-turnstile {
     margin: 16px 0;
 }
+
+/* ============================================================
+ * Remember Me checkbox on the login form (v2.0.1).
+ * Inline label-with-checkbox, theme-aware via existing custom
+ * properties. Subtle height so it visually substitutes a
+ * shorter row than a regular .form-group.
+ * ============================================================ */
+.remember-me-group {
+    margin-bottom: 4px;
+}
+
+.remember-me-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.remember-me-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--color-brand-primary);
+    cursor: pointer;
+}

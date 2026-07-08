@@ -25,6 +25,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.api.routes.auth import router
 from app.core.csrf import CSRFMiddleware
 from app.core.rate_limit import RateLimitMiddleware
+from app.core.remember_me import RememberMeMiddleware
 from app.db.session import init_db
 
 app = FastAPI(title="Vulnerable Web Application - Security Lab")
@@ -33,8 +34,10 @@ app = FastAPI(title="Vulnerable Web Application - Security Lab")
 # internal middleware list, so the LAST add_middleware call is the
 # OUTERMOST layer on the request path. Counter-intuitive but important.
 #
-# Desired layering: RateLimit (outer) -> Session -> CSRF (inner) -> handler
-#   - RateLimit outermost: throttled floods never reach the body-reading
+# Desired layering: RememberMe (outer) -> RateLimit -> Session -> CSRF (inner) -> handler
+#   - RememberMe outermost: patches the session cookie's Max-Age on the
+#     response path AFTER SessionMiddleware has serialized the cookie.
+#   - RateLimit second: throttled floods never reach the body-reading
 #     CSRF stage, so an attacker cannot CPU-burn the CSRF parser.
 #   - Session in the middle: decodes the signed cookie into
 #     scope["session"] before CSRF tries to read it.
@@ -42,9 +45,9 @@ app = FastAPI(title="Vulnerable Web Application - Security Lab")
 #     the buffered body to the handler.
 #
 # To achieve that flow, registrations go INNER-to-OUTER below: CSRF,
-# Session, RateLimit. You can verify the final order at runtime with:
+# Session, RateLimit, RememberMe. You can verify the final order at runtime with:
 #   python -c "from app.main import app; print([m.cls.__name__ for m in app.user_middleware])"
-# Expected: ['RateLimitMiddleware', 'SessionMiddleware', 'CSRFMiddleware']
+# Expected: ['RememberMeMiddleware', 'RateLimitMiddleware', 'SessionMiddleware', 'CSRFMiddleware']
 # (outer -> inner on the request path).
 
 # FIXED: CSRF closed -- synchronizer-token middleware rejects every POST whose
@@ -65,6 +68,12 @@ app.add_middleware(
     max_requests=RATE_LIMIT_MAX,
     window_seconds=RATE_LIMIT_WINDOW_SECONDS,
 )
+
+# Remember Me (additive feature): outermost middleware patches the session
+# cookie's Max-Age on the response path when the handler has set a
+# __max_age__ directive in the session.  This runs AFTER SessionMiddleware
+# has already serialized and signed the cookie, so we just tweak the header.
+app.add_middleware(RememberMeMiddleware)
 
 # Wire every @router.get/post in api/routes/auth.py into the app at /.
 app.include_router(router)
