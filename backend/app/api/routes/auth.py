@@ -245,6 +245,7 @@ async def login_post(
     request: Request,
     username: str = Form(""),
     password: str = Form(""),
+    remember_me: str = Form(""),
     cf_turnstile_response: str = Form("", alias="cf-turnstile-response"),
 ):
     """Handle login form submission.
@@ -261,13 +262,27 @@ async def login_post(
     write user_id/username/email into `request.session` on success --
     that mutation is what triggers SessionMiddleware to write the
     Set-Cookie header on the response.
+
+    Remember Me (v2.0.1): when the checkbox is checked (value "1") and the
+    login succeeds without 2FA, a ``__max_age__`` directive is set in the
+    session so that RememberMeMiddleware patches the cookie to a persistent
+    Max-Age. If 2FA is pending the flag is preserved across the challenge.
     """
     if config.is_captcha_configured() and not captcha.verify(cf_turnstile_response):
         return JSONResponse(
             {"error": "CAPTCHA verification failed. Please try again."},
             status_code=400,
         )
-    return auth_service.login(request, username, password)
+    result = auth_service.login(request, username, password)
+    if request.session.get("user_id"):
+        if remember_me == "1":
+            request.session["__max_age__"] = config.REMEMBER_ME_MAX_AGE
+    elif request.session.get("pending_2fa_user_id"):
+        if remember_me == "1":
+            request.session["pending_remember_me"] = True
+        else:
+            request.session.pop("pending_remember_me", None)
+    return result
 
 
 @router.get("/search")
@@ -487,6 +502,9 @@ async def login_otp_post(request: Request, otp: str = Form("")):
         user = result["user"]
         request.session.pop("pending_2fa_user_id", None)
         request.session.pop("pending_2fa_username", None)
+        request.session.pop("pending_2fa_method", None)
+        if request.session.pop("pending_remember_me", None):
+            request.session["__max_age__"] = config.REMEMBER_ME_MAX_AGE
         request.session["user_id"] = user["id"]
         request.session["username"] = user["username"]
         request.session["email"] = user["email"]
@@ -693,6 +711,8 @@ async def login_totp_post(request: Request, code: str = Form("")):
         request.session.pop("pending_2fa_user_id", None)
         request.session.pop("pending_2fa_username", None)
         request.session.pop("pending_2fa_method", None)
+        if request.session.pop("pending_remember_me", None):
+            request.session["__max_age__"] = config.REMEMBER_ME_MAX_AGE
         request.session["user_id"] = user["id"]
         request.session["username"] = user["username"]
         request.session["email"] = user["email"]

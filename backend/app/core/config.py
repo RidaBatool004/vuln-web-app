@@ -206,3 +206,11 @@ def is_captcha_configured() -> bool:
     widget or skip it entirely. Mirrors is_google_configured() / is_email_configured().
     """
     return bool(TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY)
+
+
+# --- Remember Me (persistent login sessions) ----------------------------------
+# When a user checks "Remember Me" on the login form and the full auth chain
+# succeeds, the session cookie's Max-Age is set to REMEMBER_ME_MAX_AGE seconds
+# (default 30 days). When unchecked the cookie remains a session cookie (no
+# Max-Age). Non-secret, env-tunable, safe default, no is_*_configured() gate.
+REMEMBER_ME_MAX_AGE = int(os.environ.get("REMEMBER_ME_MAX_AGE", "2592000"))
